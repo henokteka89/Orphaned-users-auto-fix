@@ -1,0 +1,72 @@
+Orphan user Auto fix for all databases in SQL Server
+ 
+
+--Auto Fix Orphan SQL login
+
+EXEC sp_MSforeachdb
+
+'
+
+USE [?];
+
+DECLARE @username NVARCHAR(128);
+
+-- Find orphaned users
+
+DECLARE orphan_users CURSOR FOR
+
+     SELECT
+
+    name AS LoginName
+
+    FROM master.sys.server_principals
+
+WHERE type_desc=''SQL_LOGIN'' and name not like ''%##%'' and name !=''sa''  -- Exclude system logins
+
+ 
+
+OPEN orphan_users;
+
+FETCH NEXT FROM orphan_users INTO @username;
+
+ 
+
+-- Loop through orphaned users
+
+WHILE @@FETCH_STATUS = 0
+
+BEGIN
+
+    PRINT ''Fixing orphaned user '' + @username + '' in database [?]'';
+
+   
+
+    -- Attempt to fix orphaned users by mapping them to logins with the same name
+
+    BEGIN TRY
+
+        EXEC sp_change_users_login @Action=''auto_fix'', @UserNamePattern=@username;
+
+    END TRY
+
+    BEGIN CATCH
+
+        PRINT ''Error fixing user '' + @username + '' in database [?]'';
+
+    END CATCH;
+
+ 
+
+    FETCH NEXT FROM orphan_users INTO @username;
+
+END;
+
+ 
+
+CLOSE orphan_users;
+
+DEALLOCATE orphan_users;
+
+'
+
+ 
